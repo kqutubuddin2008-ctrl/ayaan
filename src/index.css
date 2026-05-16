@@ -67,3 +67,24 @@ button { cursor: pointer; }
   .no-print { display: none !important; }
   body { background: white; color: black; }
 }
+
+.orb {
+  position: absolute;
+  width: 22rem;
+  height: 22rem;
+  border-radius: 9999px;
+  filter: blur(70px);
+  animation: floatOrb 12s ease-in-out infinite;
+}
+
+.animation-delay-2000 { animation-delay: 2s; }
+.animation-delay-4000 { animation-delay: 4s; }
+
+@keyframes floatOrb {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(24px, -30px, 0) scale(1.08); }
+}
+
+@media (max-width: 768px) {
+  .orb { width: 14rem; height: 14rem; filter: blur(48px); }
+}
