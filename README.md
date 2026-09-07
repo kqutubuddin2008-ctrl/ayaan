@@ -1,113 +1,81 @@
-# Nexus Connect — Real-Time Chat & Video Call Application
+# AI-Powered Smart Attendance System with Face Recognition, Liveness Detection and Analytics
 
-Nexus Connect is a production-oriented, premium communication app scaffold inspired by Discord, WhatsApp, and Telegram. It includes a futuristic React/Tailwind UI, Socket.IO realtime events, WebRTC signaling endpoints, JWT authentication, MongoDB schemas, Redis-ready caching, uploads, PWA support, and deployment guidance.
+A production-style BCA final-year prototype for consented, face-assisted classroom attendance. It has a modular Flask REST API, MySQL-ready SQLAlchemy models, RBAC, encrypted face descriptors, a real OpenCV image-analysis pipeline, movement-challenge liveness, transactional duplicate protection, audit logs, anomaly flags, real-data analytics, and report export.
 
-## What is included
+> **Biometric notice:** this is a decision-support prototype, not a claim of biometric-security certification. Obtain institutional approval and informed consent before enrollment. Use TLS, a separately managed `BIOMETRIC_ENCRYPTION_KEY`, MySQL backups, and a validated presentation-attack-detection model in any live deployment.
 
-### Frontend
+## Architecture
 
-- React + Vite architecture with mobile-first responsive layouts.
-- Tailwind CSS glassmorphism, neon gradients, dark/light mode, floating UI, skeleton-friendly panels, and accessibility-conscious controls.
-- Framer Motion micro-interactions for sidebars, panels, messages, and call surfaces.
-- Socket.IO client integration for live messages, typing indicators, read/delivery states, and presence.
-- PWA manifest and service worker for installability and offline shell caching.
-- Production-ready component areas: landing strip, auth/OAuth affordances, dashboard, chat interface, group rooms, video call panel, notifications, profile/member surfaces, and admin/privacy navigation.
+```mermaid
+flowchart LR
+ Browser --> Bootstrap_UI --> Flask_API --> Auth_RBAC
+ Flask_API --> Services
+ Services --> Vision[OpenCV descriptor + movement liveness]
+ Services --> SQLAlchemy --> MySQL[(MySQL 8)]
+ Services --> Reports[Pandas / OpenPyXL / ReportLab]
+```
 
-### Backend
+## Key workflows
 
-- Node.js + Express API with Helmet, CORS, compression, JSON limits, and API rate limiting.
-- MongoDB/Mongoose schemas for users, devices, privacy settings, conversations, encrypted messages, attachments, reactions, receipts, group admins, and pinned messages.
-- JWT login/signup/session endpoints with password hashing and 2FA/OAuth extension points.
-- Socket.IO realtime server with authenticated sockets, room joins, presence, typing, reactions, read receipts, incoming calls, and WebRTC offer/answer/ICE signaling.
-- Redis-ready room caching and scalable environment configuration.
-- Upload route for document/media ingestion and future CDN/object storage integration.
+- **Enrollment:** privileged staff submit a JPEG/PNG; OpenCV requires exactly one sufficiently sharp face, creates a normalized DCT descriptor, encrypts it, and never returns it through the API.
+- **Recognition:** a camera frame is compared against enrolled descriptors. The service reports `RECOGNIZED`, `UNKNOWN`, or `UNCERTAIN`; boundary cases never auto-mark attendance.
+- **Liveness:** the browser supplies centers from two independently captured challenge frames. Enough movement gives `LIVE`; otherwise it is `SPOOF_SUSPECTED` or `UNCERTAIN` and attendance is blocked.
+- **Attendance:** application checks are backed by `UNIQUE(student_id, session_id)`, so concurrent requests cannot duplicate a mark.
+- **Analytics:** values are calculated from stored records; no dashboard metric is fabricated.
 
-## Folder structure
+## Project layout
 
 ```text
-src/
-  App.jsx                    # Premium realtime app shell and dashboard
-  components/                # Reusable chat and typing components
-  data/mockData.js           # Demo rooms, users, notifications, metrics
-  main.jsx                   # React entry + service worker registration
-server/
-  index.js                   # Express, MongoDB, Redis, Socket.IO bootstrap
-  realtime/socket.js         # Socket.IO and WebRTC signaling events
-  routes/                    # Auth, chat, upload REST API routes
-  models/                    # MongoDB user/conversation schemas
-public/
-  manifest.webmanifest       # PWA metadata
-  sw.js                      # Offline shell service worker
+app/                 Flask factory, API, models, services, AI and security helpers
+database/schema.sql  MySQL/migration bootstrap notes
+scripts/seed.py      Explicit-password development data only
+tests/               Core authentication, student, session tests
+docs/                Report and diagrams
+VIVA.md              Viva questions and BCA-level answers
 ```
 
-## Realtime event architecture
+## Setup (Windows, macOS, Linux)
 
-| Event | Direction | Purpose |
-| --- | --- | --- |
-| `room:join` / `room:leave` | client → server | Subscribe users to direct chats, groups, channels, and call rooms. |
-| `message:send` | client → server → room | Broadcast encrypted messages with attachments and delivery acknowledgement. |
-| `message:typing` | client → server → room | Low-latency typing indicators. |
-| `message:reaction` | client → server → room | Emoji reactions and engagement. |
-| `message:read` | client → server → room | Read receipts and seen status. |
-| `presence:update` | server → clients | Online/offline activity indicators. |
-| `call:invite` / `call:incoming` | client → server → room | Incoming call popup and ringtone hooks. |
-| `call:join` / `call:end` | client ↔ server | Group voice/video room lifecycle. |
-| `webrtc:offer`, `webrtc:answer`, `webrtc:ice-candidate` | peer ↔ server ↔ peer | WebRTC signaling for HD voice/video, screen share, and adaptive media. |
-| `call:media-state` | client → server → call | Camera/mic/screen-share state synchronization. |
+1. Install Python 3.11+ and MySQL 8. Create a database/user with least privilege.
+2. Create and activate a virtual environment: `python -m venv .venv` then `.venv\Scripts\activate` (Windows) or `source .venv/bin/activate` (macOS/Linux).
+3. `pip install -r requirements.txt`
+4. `cp .env.example .env` (Windows: `copy .env.example .env`) and set `DATABASE_URL`, `SECRET_KEY`, and a Fernet `BIOMETRIC_ENCRYPTION_KEY` (`python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`).
+5. Migrate: `flask --app app.py db init`, `flask --app app.py db migrate -m "initial schema"`, `flask --app app.py db upgrade`.
+6. For a demo only, set a password in your shell and run `python scripts/seed.py`; it refuses to embed a production credential in source.
+7. Start: `python app.py`, then open `http://localhost:5000`.
 
-## Environment
+## Demonstration procedure
 
-Copy the example and replace secrets for production:
+1. Sign in as a created super administrator and create department, course, subject, and student records through API/admin tooling.
+2. Enroll each consented student with clear, single-face camera captures at `/api/face/enroll`.
+3. Faculty starts an in-scope attendance session via `/api/attendance/start-session`.
+4. On the live page, capture the prompted head movement twice and submit the current image to `/api/attendance/recognize`.
+5. Demonstrate an unknown, blurred, or no-movement frame: it must not be marked and may be flagged for review.
+6. Re-submit a recognized student: the database rejects duplicate attendance.
+7. View `/api/analytics/overview`, student reports, and download `/api/reports/attendance.csv`.
 
-```bash
-cp .env.example .env
-```
+## API summary
 
-Key variables:
+| Endpoint | Permission | Purpose |
+|---|---|---|
+| `POST /api/auth/login` | Public, rate limited | Session login |
+| `GET/POST /api/students` | Faculty/Admin; Admin | Paginated management |
+| `PATCH/DELETE /api/students/:id` | Admin | Update / soft deactivate |
+| `POST /api/face/enroll` | Admin | Encrypted descriptor enrollment |
+| `POST /api/attendance/start-session` | Faculty/Admin | Creates UUID session |
+| `POST /api/attendance/recognize` | Faculty/Admin | Recognizes, checks liveness, marks |
+| `GET /api/analytics/overview` | Logged-in | Calculated KPI data |
+| `GET /api/reports/student/:id` | Owner or staff | Student attendance calculation |
 
-- `MONGODB_URI` — MongoDB Atlas or self-hosted MongoDB connection string.
-- `JWT_SECRET` — long random secret for API and Socket.IO auth.
-- `REDIS_URL` — Redis/Upstash URL for caching and future Socket.IO adapters.
-- `CLIENT_URL` — deployed frontend origin.
-- `TURN_URL`, `TURN_USERNAME`, `TURN_CREDENTIAL` — STUN/TURN settings for WebRTC reliability.
-- `OPENAI_API_KEY` — optional AI assistant, suggestions, translation, and moderation integration.
+Responses consistently use `{ "success": boolean, "message": string, "data": object }`.
 
-## Local development
+## Tests
 
-```bash
-npm install
-npm run dev
-```
+Run `pytest -q`. The suite covers valid/invalid authorization, protected routes, student duplicate/deactivation behavior, and session creation. Extend it with actual capture fixtures before production.
 
-Run the API in another terminal:
+## Security and privacy limitations
 
-```bash
-npm run server
-```
-
-## Production deployment guide
-
-1. Build the frontend with `npm run build` and deploy `dist/` to Vercel, Netlify, Cloudflare Pages, or an S3/CDN edge.
-2. Deploy the API to Render, Fly.io, Railway, AWS ECS, or Kubernetes.
-3. Use MongoDB Atlas with automated backups and connection pooling.
-4. Use Redis for REST caching and add the Socket.IO Redis adapter when horizontally scaling multiple API instances.
-5. Put media uploads behind object storage such as S3/R2 plus a CDN, then persist signed URLs in message attachments.
-6. Configure HTTPS and secure cookies/tokens. Rotate `JWT_SECRET` and OAuth secrets via the host secret manager.
-7. Configure TURN (Twilio/Numb, Cloudflare Calls, Metered, or coturn) for users behind strict NATs.
-8. Add CI/CD steps: install, lint/typecheck, `npm run check`, `npm run build`, container image build, and smoke tests.
-9. Add monitoring: API latency, Socket.IO connection count, WebRTC call quality, upload failures, MongoDB query times, and Redis hit ratio.
-10. Enforce security controls: rate limits, moderation queues, report/block workflows, audit logs, 2FA, and dependency scanning.
-
-## Docker sketch
-
-```dockerfile
-FROM node:22-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --omit=dev
-COPY . .
-EXPOSE 8080
-CMD ["npm", "run", "server"]
-```
-
-For a complete production deployment, build the Vite frontend separately and serve it via CDN or static hosting.
+- Passwords are hashed; SQLAlchemy parameterizes queries; upload MIME and size are checked; authentication is rate limited; cookies are HTTP-only/SameSite; audit data excludes passwords/descriptors.
+- Configure HTTPS and `SESSION_COOKIE_SECURE=true` in production. Use a shared rate-limit store rather than memory.
+- The DCT descriptor and Haar detector are a lightweight, genuine baseline suitable for a laptop demo, **not** an accuracy or anti-spoofing guarantee. Calibrate thresholds on consented local data and replace it with a maintained, independently evaluated embedding/PAD stack for sensitive deployment.
+- Retention periods, lawful basis, consent, access/deletion requests, disability alternatives, bias assessments, and institutional policies remain the deploying institution's responsibility.
