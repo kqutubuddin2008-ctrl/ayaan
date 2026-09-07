@@ -1,6 +1,10 @@
-node_modules
-dist
 .env
-.DS_Store
-*.log
-coverage
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+instance/
+uploads/*
+!uploads/.gitkeep
+reports/*
+!reports/.gitkeep

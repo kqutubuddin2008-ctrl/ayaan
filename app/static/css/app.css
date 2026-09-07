@@ -1,0 +1,1 @@
+:root{--ink:#15243c;--blue:#2864e8;--paper:#f4f7fb}body{background:var(--paper);color:var(--ink)}.hero{background:linear-gradient(135deg,#112a52,#2864e8);color:white;box-shadow:0 20px 60px #163d7540}.eyebrow{letter-spacing:.14em;font-weight:700;font-size:.78rem}.card{border:0;border-radius:1rem;box-shadow:0 8px 25px #12264b12}.btn-primary{background:#2864e8;border-color:#2864e8}
